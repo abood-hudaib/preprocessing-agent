@@ -1,0 +1,17 @@
+missing:
+  numeric:
+    strategy: "median"   # options: median, mean, zero, constant, drop
+    fill_value: null     # used only if strategy = constant
+  text:
+    strategy: "mode"     # options: mode, Unknown, constant, drop
+    fill_value: "Unknown"
+
+duplicates:
+  strategy: "remove"      # options: remove, keep_first, keep_last, none
+
+outliers:
+  method: "IQR"           # current only supports IQR
+  action: "flag"          # options: drop, cap, flag
+
+scaling:
+  numeric: "none"         # options: none, standard, minmax

@@ -1,7 +1,9 @@
-id,name,age,city
-1,Ali,25,Amman
-2,Sara,,Irbid
-3,Omar,22,Zarqa
-4,Lina,28,Aqaba
-4,Lina,28,Aqaba
-5,Yousef,35,
+id,name,age,city,salary
+1,Ali,25,Amman,3000
+2,Sara,,Irbid,NaN
+3,Omar,22,Zarqa,2800
+4,Lina,28,Aqaba,3100
+4,Lina,28,Aqaba,3100
+5,Yousef,35,,NaN
+6,Abeer,30,Amman,3500
+7,Hassan,NaN,Zarqa,2900

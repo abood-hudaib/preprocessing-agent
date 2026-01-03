@@ -1,28 +1,13 @@
-# Data Preprocessing Agent (v1.0)
+# Data Preprocessing Agent (v2.0)
 
-A simple and robust data preprocessing agent built using Python and pandas.
+This is version 2.0 of the Data Preprocessing Agent — a flexible, configurable Python pipeline for preparing and profiling datasets before analysis.
 
-## What this project does
-- Loads CSV datasets
-- Fills missing values:
-  - Numeric columns → median
-  - Text columns → "Unknown"
-- Removes duplicate rows
-- Generates a clear preprocessing report
-
-## Project Structure
-preprocessing_agent/
-- main.py
-- data.csv
-- README.md
-- src/
-  - loader.py
-  - cleaner.py
-  - reporter.py
-
-## How to run
-pip install pandas  
-python main.py
-
-## Version
-v1.0 — Clean & Report
+## Features in v2.0
+- Load CSV and Excel datasets
+- Configurable preprocessing:
+  - Handling missing values with multiple strategies
+  - Duplicate management
+  - Outlier handling (IQR method)
+  - Scaling (Standard or MinMax)
+- Advanced profiling before and after cleaning
+- Config file (`config.yml`) for flexible setup
