@@ -1,68 +1,38 @@
 from __future__ import annotations
 
-import pandas as pd
 
-
-def generate_report(
-    original_df: pd.DataFrame,
-    cleaned_df: pd.DataFrame
-) -> str:
+def generate_report(metrics: dict, config: dict, input_file: str) -> str:
     """
-    Generate a text report describing preprocessing steps and results.
+    Generate a client-friendly Markdown report.
     """
+    missing_cfg = config.get("missing", {})
+    num_missing = missing_cfg.get("numeric", {}).get("strategy", "median")
+    txt_missing = missing_cfg.get("text", {}).get("strategy", "Unknown")
+    dup_strategy = config.get("duplicates", {}).get("strategy", "remove")
+    out_cfg = config.get("outliers", {})
+    out_action = out_cfg.get("action", "flag")
+    out_method = out_cfg.get("method", "IQR")
 
-    report_lines = []
+    lines = []
+    lines.append("# Data Preprocessing Report\n")
+    lines.append(f"**Input file:** {input_file}\n")
 
-    # Basic shape info
-    report_lines.append("DATA PREPROCESSING REPORT")
-    report_lines.append("-" * 30)
+    lines.append("## Summary\n")
+    lines.append(f"- Rows before: **{metrics['rows_before']}**")
+    lines.append(f"- Rows after: **{metrics['rows_after']}**")
+    lines.append(f"- Missing handled (cells reduced): **{metrics['missing_handled']}**")
+    lines.append(f"- Duplicates removed (rows): **{metrics['duplicates_removed']}**")
+    lines.append(f"- Outliers removed (rows): **{metrics['outliers_removed']}**")
+    lines.append(f"- Scaling applied: **{metrics['scaling_applied']}**\n")
 
-    report_lines.append(
-        f"Rows before cleaning: {original_df.shape[0]}"
-    )
-    report_lines.append(
-        f"Rows after cleaning: {cleaned_df.shape[0]}"
-    )
-    report_lines.append(
-        f"Columns: {original_df.shape[1]}"
-    )
+    lines.append("## Configuration Used\n")
+    lines.append(f"- Missing numeric strategy: **{num_missing}**")
+    lines.append(f"- Missing text strategy: **{txt_missing}**")
+    lines.append(f"- Duplicates strategy: **{dup_strategy}**")
+    lines.append(f"- Outliers: **{out_method}** / action: **{out_action}**\n")
 
-    report_lines.append("")
+    lines.append("## Delivered Files\n")
+    lines.append("- `cleaned_data.csv`")
+    lines.append("- `report.md`\n")
 
-    # Missing values info
-    report_lines.append("Missing Values Handling:")
-    original_missing = original_df.isnull().sum()
-    cleaned_missing = cleaned_df.isnull().sum()
-
-    for col in original_df.columns:
-        if original_missing[col] > 0:
-            report_lines.append(
-                f"- Column '{col}': "
-                f"{original_missing[col]} missing values filled"
-            )
-
-    report_lines.append("")
-
-    # Duplicate info
-    duplicates_removed = (
-        original_df.shape[0] - cleaned_df.shape[0]
-    )
-    report_lines.append(
-        f"Duplicate rows removed: {duplicates_removed}"
-    )
-
-    report_lines.append("")
-    report_lines.append(
-        "Preprocessing rules (v1.0):"
-    )
-    report_lines.append(
-        "- Numeric missing values filled with median"
-    )
-    report_lines.append(
-        "- Text missing values filled with 'Unknown'"
-    )
-    report_lines.append(
-        "- Exact duplicate rows removed"
-    )
-
-    return "\n".join(report_lines)
+    return "\n".join(lines)

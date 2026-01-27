@@ -1,39 +1,43 @@
 from __future__ import annotations
+
+from pathlib import Path
 import yaml
 import pandas as pd
-from pathlib import Path
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
 def load_config(path: str = "config.yml") -> dict:
-    """
-    Load configuration from YAML file.
-    """
     config_path = Path(path)
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
-    with open(config_path, "r") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    return config
+    return config or {}
 
 
-def handle_missing_values(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+def handle_missing_values(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, int]:
     """
-    Fill missing values based on config settings.
+    Fill/drop missing values based on config settings.
+    Returns: (cleaned_df, missing_handled_count)
+    missing_handled_count = total_missing_before - total_missing_after
     """
     cleaned = df.copy()
 
-    # Numeric
-    num_strategy = config.get("missing", {}).get("numeric", {}).get("strategy", "median")
-    num_fill_val = config.get("missing", {}).get("numeric", {}).get("fill_value", None)
+    missing_cfg = config.get("missing", {})
+    num_cfg = missing_cfg.get("numeric", {})
+    txt_cfg = missing_cfg.get("text", {})
 
-    # Text
-    txt_strategy = config.get("missing", {}).get("text", {}).get("strategy", "Unknown")
-    txt_fill_val = config.get("missing", {}).get("text", {}).get("fill_value", "Unknown")
+    num_strategy = num_cfg.get("strategy", "median")
+    num_fill_val = num_cfg.get("fill_value", None)
 
-    for col in cleaned.columns:
+    txt_strategy = txt_cfg.get("strategy", "Unknown")
+    txt_fill_val = txt_cfg.get("fill_value", "Unknown")
+
+    missing_before = int(cleaned.isna().sum().sum())
+
+    for col in list(cleaned.columns):
         if pd.api.types.is_numeric_dtype(cleaned[col]):
             if num_strategy == "median":
                 cleaned[col] = cleaned[col].fillna(cleaned[col].median())
@@ -47,7 +51,9 @@ def handle_missing_values(df: pd.DataFrame, config: dict) -> pd.DataFrame:
                 cleaned = cleaned.dropna(subset=[col])
         else:
             if txt_strategy == "mode":
-                cleaned[col] = cleaned[col].fillna(cleaned[col].mode()[0] if not cleaned[col].mode().empty else txt_fill_val)
+                mode_vals = cleaned[col].mode()
+                fill_value = mode_vals.iloc[0] if not mode_vals.empty else txt_fill_val
+                cleaned[col] = cleaned[col].fillna(fill_value)
             elif txt_strategy == "Unknown":
                 cleaned[col] = cleaned[col].fillna("Unknown")
             elif txt_strategy == "constant":
@@ -55,38 +61,53 @@ def handle_missing_values(df: pd.DataFrame, config: dict) -> pd.DataFrame:
             elif txt_strategy == "drop":
                 cleaned = cleaned.dropna(subset=[col])
 
-    return cleaned
+    missing_after = int(cleaned.isna().sum().sum())
+    missing_handled = max(0, missing_before - missing_after)
+
+    return cleaned, missing_handled
 
 
-def handle_duplicates(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+def handle_duplicates(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, int]:
     """
     Handle duplicates based on config strategy.
+    Returns: (cleaned_df, duplicates_removed)
     """
     strategy = config.get("duplicates", {}).get("strategy", "remove")
 
+    before = int(df.shape[0])
+
     if strategy == "remove":
-        return df.drop_duplicates().copy()
+        cleaned = df.drop_duplicates().copy()
     elif strategy == "keep_first":
-        return df.drop_duplicates(keep="first").copy()
+        cleaned = df.drop_duplicates(keep="first").copy()
     elif strategy == "keep_last":
-        return df.drop_duplicates(keep="last").copy()
+        cleaned = df.drop_duplicates(keep="last").copy()
     elif strategy == "none":
-        return df.copy()
+        cleaned = df.copy()
     else:
-        return df.copy()
+        cleaned = df.copy()
+
+    after = int(cleaned.shape[0])
+    removed = max(0, before - after)
+
+    return cleaned, removed
 
 
-def handle_outliers(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+def handle_outliers(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, int]:
     """
     Simple outlier handling based on IQR.
+    Returns: (cleaned_df, outliers_removed_rows)
+    If action != drop => removed = 0
     """
     cleaned = df.copy()
     out_cfg = config.get("outliers", {})
     action = out_cfg.get("action", "flag")
     method = out_cfg.get("method", "IQR")
 
+    before_rows = int(cleaned.shape[0])
+
     if method == "IQR":
-        for col in cleaned.columns:
+        for col in list(cleaned.columns):
             if pd.api.types.is_numeric_dtype(cleaned[col]):
                 Q1 = cleaned[col].quantile(0.25)
                 Q3 = cleaned[col].quantile(0.75)
@@ -98,14 +119,19 @@ def handle_outliers(df: pd.DataFrame, config: dict) -> pd.DataFrame:
                     cleaned = cleaned[(cleaned[col] >= lower) & (cleaned[col] <= upper)]
                 elif action == "cap":
                     cleaned[col] = cleaned[col].clip(lower, upper)
-                # 'flag' does nothing right now, just keep values
+                # flag => no change
 
-    return cleaned
+    after_rows = int(cleaned.shape[0])
+    removed = max(0, before_rows - after_rows) if action == "drop" else 0
+
+    return cleaned, removed
 
 
-def handle_scaling(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+def handle_scaling(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, str]:
     """
     Scale numeric columns based on config.
+    Returns: (cleaned_df, scaling_applied)
+    scaling_applied: "standard" | "minmax" | "none"
     """
     cleaned = df.copy()
     method = config.get("scaling", {}).get("numeric", "none")
@@ -120,5 +146,6 @@ def handle_scaling(df: pd.DataFrame, config: dict) -> pd.DataFrame:
 
     if scaler is not None and num_cols:
         cleaned[num_cols] = scaler.fit_transform(cleaned[num_cols])
+        return cleaned, method
 
-    return cleaned
+    return cleaned, "none"
